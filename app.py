@@ -14,7 +14,7 @@ MASTER_CSV_FILE = "PhD_Review_Assignment_Distribution.csv"
 GRADES_CSV_FILE = "grades.csv"
 ADMIN_PASSWORD = "phd_admin_2025"
 
-# The 5 Quality Criteria (Total 10 Marks)
+# SINGLE SOURCE OF TRUTH: 5 Criteria x 2.0 Marks = 10.0 Total
 RUBRIC_CRITERIA = {
     "scholarly_understanding": "Depth of Scholarly Understanding (0-2)",
     "critical_analysis": "Critical Analysis & Synthesis (0-2)",
@@ -27,14 +27,6 @@ RUBRIC_CRITERIA = {
 # LOGIC FUNCTIONS
 # ==========================================
 def calculate_ai_status(ai_percent):
-    """
-    Returns: (Message, Penalty, Is_Rejected, Status_Color)
-    Rules:
-    - 0-10%  : Safe (0 Penalty)
-    - 10-20% : -2 Marks
-    - 20-30% : -4 Marks
-    - >30%   : Rejected (0 Marks)
-    """
     if ai_percent <= 10.0:
         return "Safe (≤10%)", 0.0, False, "success"
     elif ai_percent <= 20.0:
@@ -45,21 +37,14 @@ def calculate_ai_status(ai_percent):
         return "REJECTED (>30%)", 0.0, True, "error"
 
 def calculate_final_grade(scores, penalty, is_rejected):
-    """
-    Formula: (Rubric Sum) - (AI Penalty)
-    If Rejected: Score is 0.
-    """
     raw_quality_score = sum(scores.values())  # Max 10
-    
     if is_rejected:
         final_score = 0.0
     else:
         final_score = max(0.0, raw_quality_score - penalty)
-        
     return raw_quality_score, final_score
 
 def check_topic_relevance(doc_text, topic, must_cover):
-    """Checks if the document matches the assigned keywords."""
     if not doc_text: return 0.0
     ref_text = f"{topic} {must_cover}".lower()
     clean_doc = doc_text.lower()
@@ -129,14 +114,14 @@ with st.sidebar:
         st.error("❌ No Class List Found")
 
 # ==========================================
-# 1. STUDENT SIMULATOR (Self-Check)
+# 1. STUDENT SIMULATOR
 # ==========================================
 if mode == "Student Simulator":
     st.title("🎓 Student Pre-Submission Check")
     st.markdown("""
     **Understanding Your Grade:**
     * **Baseline:** AI < 10% ensures no *penalty*.
-    * **The Grade:** Your mark (0-10) comes from the **Quality Rubric** below.
+    * **The Grade:** Your mark (0-10) comes from the **Quality Rubric** below (5 Criteria x 2 Marks).
     """)
     
     col_login, col_details = st.columns([1, 2])
@@ -183,19 +168,18 @@ if mode == "Student Simulator":
 
             st.write("---")
             
-            # 2. Rubric Self-Assessment (The "Reality Check")
+            # 2. Rubric Self-Assessment
             col_rubric, col_ai = st.columns([3, 2])
             
             with col_rubric:
-                st.write("#### Step 2: Quality Self-Assessment (The Marks)")
-                st.caption("Be honest. If your writing is average, you will get ~1.0 per section.")
+                st.write("#### Step 2: Quality Self-Assessment")
+                st.caption("Rate yourself on the 5 official criteria:")
                 
                 sim_scores = {}
-                sim_scores['scholarly'] = st.slider("Scholarly Understanding (0-2)", 0.0, 2.0, 1.5, 0.25)
-                sim_scores['critical'] = st.slider("Critical Analysis (0-2)", 0.0, 2.0, 1.0, 0.25)
-                sim_scores['flow'] = st.slider("Logical Flow (0-2)", 0.0, 2.0, 1.0, 0.25)
-                sim_scores['lit'] = st.slider("Literature Usage (0-2)", 0.0, 2.0, 1.5, 0.25)
-                sim_scores['style'] = st.slider("Writing Style (0-2)", 0.0, 2.0, 1.0, 0.25)
+                # USE SAME RUBRIC AS EXAMINER
+                for key, label in RUBRIC_CRITERIA.items():
+                    # Default 1.5 for student optimism
+                    sim_scores[key] = st.slider(label, 0.0, 2.0, 1.5, 0.25, key=f"sim_{key}")
                 
                 raw_quality = sum(sim_scores.values())
                 st.info(f"📝 **Raw Quality Score:** {raw_quality} / 10")
@@ -205,7 +189,6 @@ if mode == "Student Simulator":
                 ai_val = st.number_input("StealthWriter %", 0.0, 100.0, 5.0, step=0.1)
                 msg, pen, rej, color = calculate_ai_status(ai_val)
                 
-                # Visual Bar
                 st.progress(min(ai_val/100, 1.0))
                 
                 if rej:
@@ -224,9 +207,7 @@ if mode == "Student Simulator":
             
             st.markdown(f"### 📊 Predicted Grade: :blue[{final_sim} / 10]")
             if pen > 0:
-                st.caption(f"(Calculated as: Quality {raw_quality} - Penalty {pen} = {final_sim})")
-            else:
-                st.caption(f"(Calculated as: Quality {raw_quality} - Penalty 0 = {final_sim})")
+                st.caption(f"(Quality {raw_quality} - Penalty {pen} = {final_sim})")
 
 # ==========================================
 # 2. EXAMINER CONSOLE
@@ -242,13 +223,11 @@ elif mode == "Examiner Console":
     # --- TAB 2: DATA & DELETION ---
     with tab2:
         st.header("1. Master Assignment List")
-        st.write("Upload 'PhD_Review_Assignment_Distribution.csv' here.")
-        
-        # Upload Section
+        st.write("Upload 'PhD_Review_Assignment_Distribution.csv'")
         up_csv = st.file_uploader("Upload CSV", type=['csv'])
         if up_csv:
             if save_uploaded_file(up_csv):
-                st.toast("List Saved Successfully!")
+                st.toast("List Saved!")
                 st.cache_data.clear()
                 if 'master_list' in st.session_state: del st.session_state['master_list']
                 load_data()
@@ -257,25 +236,21 @@ elif mode == "Examiner Console":
         # DELETE Master List Logic
         if st.session_state.master_list is not None:
             st.markdown("---")
-            if st.button("🗑️ DELETE Master List (Reset System)", type="primary"):
+            if st.button("🗑️ DELETE Master List", type="primary"):
                 try:
                     if os.path.exists(MASTER_CSV_FILE):
                         os.remove(MASTER_CSV_FILE)
                         st.session_state.master_list = None
                         st.cache_data.clear()
-                        st.success("Master List Deleted. Please upload a new one.")
                         st.rerun()
-                except Exception as e:
-                    st.error(f"Error deleting file: {e}")
+                except: pass
 
         st.markdown("---")
-        st.header("2. Manage Gradebook (Delete Entries)")
+        st.header("2. Manage Gradebook")
         
         if not st.session_state.gradebook.empty:
             st.dataframe(st.session_state.gradebook)
             
-            # Select Row to Delete
-            # We create a list of "Roll Number - Name - Score" for easier selection
             grade_opts = st.session_state.gradebook.apply(
                 lambda x: f"{x['Roll Number']} - {x['Student Name']} (Score: {x['Final Score']})", axis=1
             ).tolist()
@@ -284,17 +259,12 @@ elif mode == "Examiner Console":
             
             if del_select != "Select...":
                 if st.button(f"❌ Delete Grade for {del_select}"):
-                    # Extract Roll Number from selection
                     roll_to_del = del_select.split(" - ")[0]
-                    
-                    # Filter out the row
                     st.session_state.gradebook = st.session_state.gradebook[
                         st.session_state.gradebook['Roll Number'] != roll_to_del
                     ]
-                    
-                    # Save back to CSV
                     st.session_state.gradebook.to_csv(GRADES_CSV_FILE, index=False)
-                    st.success(f"Deleted record for Roll Number {roll_to_del}")
+                    st.success("Deleted!")
                     st.rerun()
         else:
             st.info("No grades recorded yet.")
@@ -302,7 +272,7 @@ elif mode == "Examiner Console":
     # --- TAB 1: GRADING ---
     with tab1:
         if st.session_state.master_list is None:
-            st.error("Please upload student list in 'Upload Data' tab.")
+            st.error("Please upload student list in 'Data Management' tab.")
         else:
             opts = st.session_state.master_list.apply(lambda x: f"{x['Roll number']} - {x['Student Name']}", axis=1).tolist()
             sel = st.selectbox("Select Student:", ["Select..."] + opts)
@@ -315,11 +285,9 @@ elif mode == "Examiner Console":
                 with st.expander("View Requirements"):
                     st.write(s_row['Must Cover in Review Section'])
                 
-                # Grading Area
                 with st.form("grading_form"):
                     c1, c2 = st.columns(2)
                     
-                    # Left: Analysis
                     with c1:
                         st.subheader("1. Checks")
                         f_up = st.file_uploader("Student File", type=['pdf', 'docx'])
@@ -336,15 +304,14 @@ elif mode == "Examiner Console":
                         elif pen > 0: st.warning(f"Penalty: -{pen} ({msg})")
                         else: st.success("Safe (No Penalty)")
 
-                    # Right: Rubric
                     with c2:
                         st.subheader("2. Quality Rubric")
-                        st.caption("Rate from 0.0 to 2.0 (Default is 1.0)")
+                        st.caption("Rate from 0.0 to 2.0")
                         sc = {}
                         disabled = rej
-                        # Default set to 1.0 (Average)
-                        for k, v in RUBRIC_CRITERIA.items():
-                            sc[k] = st.slider(v, 0.0, 2.0, 1.0, 0.25, disabled=disabled)
+                        # USE SAME RUBRIC AS SIMULATOR
+                        for key, label in RUBRIC_CRITERIA.items():
+                            sc[key] = st.slider(label, 0.0, 2.0, 1.0, 0.25, disabled=disabled, key=f"exam_{key}")
                     
                     remarks = st.text_area("Final Remarks", disabled=disabled)
                     
@@ -360,7 +327,7 @@ elif mode == "Examiner Console":
                             "Examiner Comments": remarks,
                             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
-                        # If student already exists in gradebook, remove old entry (Update logic)
+                        # Remove old entry if exists (overwrite)
                         if not st.session_state.gradebook.empty:
                             st.session_state.gradebook = st.session_state.gradebook[
                                 st.session_state.gradebook['Roll Number'] != r_num
