@@ -237,19 +237,69 @@ elif mode == "Examiner Console":
         st.warning("Enter Admin Password.")
         st.stop()
         
-    tab1, tab2 = st.tabs(["📝 Grading", "⚙️ Upload Data"])
+    tab1, tab2 = st.tabs(["📝 Grading", "⚙️ Data Management"])
     
+    # --- TAB 2: DATA & DELETION ---
     with tab2:
-        st.write("Upload 'PhD_Review_Assignment_Distribution.csv'")
+        st.header("1. Master Assignment List")
+        st.write("Upload 'PhD_Review_Assignment_Distribution.csv' here.")
+        
+        # Upload Section
         up_csv = st.file_uploader("Upload CSV", type=['csv'])
         if up_csv:
             if save_uploaded_file(up_csv):
-                st.toast("Saved!")
+                st.toast("List Saved Successfully!")
                 st.cache_data.clear()
                 if 'master_list' in st.session_state: del st.session_state['master_list']
                 load_data()
                 st.rerun()
 
+        # DELETE Master List Logic
+        if st.session_state.master_list is not None:
+            st.markdown("---")
+            if st.button("🗑️ DELETE Master List (Reset System)", type="primary"):
+                try:
+                    if os.path.exists(MASTER_CSV_FILE):
+                        os.remove(MASTER_CSV_FILE)
+                        st.session_state.master_list = None
+                        st.cache_data.clear()
+                        st.success("Master List Deleted. Please upload a new one.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error deleting file: {e}")
+
+        st.markdown("---")
+        st.header("2. Manage Gradebook (Delete Entries)")
+        
+        if not st.session_state.gradebook.empty:
+            st.dataframe(st.session_state.gradebook)
+            
+            # Select Row to Delete
+            # We create a list of "Roll Number - Name - Score" for easier selection
+            grade_opts = st.session_state.gradebook.apply(
+                lambda x: f"{x['Roll Number']} - {x['Student Name']} (Score: {x['Final Score']})", axis=1
+            ).tolist()
+            
+            del_select = st.selectbox("Select Record to Delete:", ["Select..."] + grade_opts)
+            
+            if del_select != "Select...":
+                if st.button(f"❌ Delete Grade for {del_select}"):
+                    # Extract Roll Number from selection
+                    roll_to_del = del_select.split(" - ")[0]
+                    
+                    # Filter out the row
+                    st.session_state.gradebook = st.session_state.gradebook[
+                        st.session_state.gradebook['Roll Number'] != roll_to_del
+                    ]
+                    
+                    # Save back to CSV
+                    st.session_state.gradebook.to_csv(GRADES_CSV_FILE, index=False)
+                    st.success(f"Deleted record for Roll Number {roll_to_del}")
+                    st.rerun()
+        else:
+            st.info("No grades recorded yet.")
+
+    # --- TAB 1: GRADING ---
     with tab1:
         if st.session_state.master_list is None:
             st.error("Please upload student list in 'Upload Data' tab.")
@@ -310,6 +360,12 @@ elif mode == "Examiner Console":
                             "Examiner Comments": remarks,
                             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
+                        # If student already exists in gradebook, remove old entry (Update logic)
+                        if not st.session_state.gradebook.empty:
+                            st.session_state.gradebook = st.session_state.gradebook[
+                                st.session_state.gradebook['Roll Number'] != r_num
+                            ]
+                            
                         st.session_state.gradebook = pd.concat([st.session_state.gradebook, pd.DataFrame([new_rec])], ignore_index=True)
                         st.session_state.gradebook.to_csv(GRADES_CSV_FILE, index=False)
                         st.success(f"Saved Grade: {fin}/10")
