@@ -193,4 +193,119 @@ if mode == "Student Dashboard":
                 msg, pen, rej, color = calculate_ai_status(sim_ai)
                 
                 # Display Progress Bar with color context
-                if rej
+                if rej:
+                    st.progress(bar_val, text="CRITICAL: REJECTION ZONE")
+                    st.error(f"❌ **RESULT: {msg}**")
+                elif pen > 0:
+                    st.progress(bar_val, text=f"WARNING: -{pen} Marks")
+                    st.warning(f"⚠️ **RESULT: {msg}**")
+                else:
+                    st.progress(bar_val, text="SAFE ZONE")
+                    st.success(f"✅ **RESULT: {msg}**")
+
+            with col_calc2:
+                st.markdown("**Impact on Grade**")
+                
+                if rej:
+                    st.metric("Missing Marks", "ALL (10/10 Lost)", delta="-10", delta_color="inverse")
+                    st.metric("Max Possible Score", "0 / 10")
+                else:
+                    st.metric("Missing Marks (Penalty)", f"{pen} Marks Lost", delta=f"-{pen}", delta_color="inverse")
+                    max_score = 10.0 - pen
+                    st.metric("Max Possible Score", f"{max_score} / 10")
+                    st.caption("Even if your assignment is perfect, this is the highest score you can get.")
+
+# ==========================================
+# MODE 2: EXAMINER CONSOLE
+# ==========================================
+elif mode == "Examiner Console":
+    st.title("🔒 Examiner Control Panel")
+    if st.sidebar.text_input("Password", type="password") != ADMIN_PASSWORD:
+        st.warning("Enter Password.")
+        st.stop()
+        
+    tab1, tab2 = st.tabs(["📝 Grading", "⚙️ Data Management"])
+    
+    with tab2:
+        st.subheader("Upload Class List")
+        up_csv = st.file_uploader("Upload PhD_Review_Assignment_Distribution.csv", type=['csv'])
+        if up_csv:
+            if save_uploaded_file(up_csv):
+                st.toast("List Saved!")
+                st.cache_data.clear()
+                if 'master_list' in st.session_state: del st.session_state['master_list']
+                load_data()
+                st.rerun()
+        
+        if st.session_state.master_list is not None:
+            st.dataframe(st.session_state.master_list, height=200)
+
+    with tab1:
+        if st.session_state.master_list is None:
+            st.error("Upload CSV in Data Management tab first.")
+        else:
+            # Selector
+            opts = st.session_state.master_list.apply(lambda x: f"{x['Roll number']} - {x['Student Name']}", axis=1).tolist()
+            sel = st.selectbox("Select Student:", ["Select..."] + opts)
+            
+            if sel != "Select...":
+                r_num = sel.split(" - ")[0]
+                s_row = st.session_state.master_list[st.session_state.master_list['Roll number'] == r_num].iloc[0]
+                
+                st.info(f"**Topic:** {s_row['Assigned Topic']}")
+                with st.expander("Show Requirements"):
+                    st.write(s_row['Must Cover in Review Section'])
+                
+                # Grading Inputs
+                c_a, c_b = st.columns(2)
+                with c_a:
+                    st.write("**1. Document Analysis**")
+                    f_up = st.file_uploader("Upload Submission", type=['pdf', 'docx'])
+                    rel_v = 0.0
+                    if f_up:
+                        txt = extract_text(f_up)
+                        rel_v = check_topic_relevance(txt, s_row['Assigned Topic'], s_row['Must Cover in Review Section'])
+                        st.metric("Content Relevance", f"{rel_v:.1f}%")
+                
+                with c_b:
+                    st.write("**2. AI Penalty**")
+                    ai_val = st.number_input("StealthWriter %", 0.0, 100.0, step=0.1)
+                    msg, pen, rej, _ = calculate_ai_status(ai_val)
+                    if rej: st.error(f"REJECTED: {msg}")
+                    elif pen > 0: st.warning(f"Penalty: -{pen} ({msg})")
+                    else: st.success("Safe")
+
+                st.write("**3. Rubric Scoring**")
+                with st.form("grade"):
+                    sc = {}
+                    dis = rej
+                    cc1, cc2 = st.columns(2)
+                    with cc1:
+                        sc['scholarly_understanding'] = st.slider("Scholarly Understanding", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                        sc['critical_analysis'] = st.slider("Critical Analysis", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                        sc['logical_flow'] = st.slider("Logical Flow", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                    with cc2:
+                        sc['literature_usage'] = st.slider("Literature Usage", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                        sc['writing_style'] = st.slider("Writing Style", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                    
+                    rem = st.text_area("Remarks", disabled=dis)
+                    if st.form_submit_button("Submit Grade"):
+                        _, fin = calculate_final_grade(sc, pen, rej)
+                        new_rec = {
+                            "Roll Number": r_num,
+                            "Student Name": s_row['Student Name'],
+                            "Subtopic": s_row['Assigned Topic'],
+                            "Relevance %": round(rel_v, 1),
+                            "AI %": ai_val,
+                            "Final Score": fin,
+                            "Examiner Comments": rem,
+                            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
+                        st.session_state.gradebook = pd.concat([st.session_state.gradebook, pd.DataFrame([new_rec])], ignore_index=True)
+                        st.session_state.gradebook.to_csv(GRADES_CSV_FILE, index=False)
+                        st.success("Saved!")
+            
+            st.divider()
+            if not st.session_state.gradebook.empty:
+                st.dataframe(st.session_state.gradebook)
+                st.download_button("Download Grades CSV", st.session_state.gradebook.to_csv(index=False), "grades.csv")
