@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ==========================================
-# 1. CENTRAL CONFIGURATION
+# 1. CONFIGURATION
 # ==========================================
 MASTER_CSV_FILE = "PhD_Review_Assignment_Distribution.csv"
 GRADES_CSV_FILE = "grades.csv"
@@ -26,9 +26,7 @@ RUBRIC_CRITERIA = {
 # ==========================================
 # 2. LOGIC ENGINE
 # ==========================================
-
 def calculate_penalties(ai_percent, rel_percent):
-    """Calculates penalty values."""
     # AI Rules
     if ai_percent > 30.0:
         ai_pen = 10.0; ai_msg = "REJECTED (AI > 30%)"; ai_rej = True
@@ -95,25 +93,31 @@ def load_data():
         if os.path.exists(MASTER_CSV_FILE):
             try:
                 df = pd.read_csv(MASTER_CSV_FILE)
-                # Cleanup Headers: Remove spaces, make consistent
                 df.columns = [c.strip() for c in df.columns]
-                # Force Roll number to String
                 df['Roll number'] = df['Roll number'].astype(str).str.strip()
                 st.session_state.master_list = df
             except: st.session_state.master_list = None
         else: st.session_state.master_list = None
 
-    # Load Gradebook
+    # Load Gradebook with DETAILED RUBRIC COLUMNS
     if 'gradebook' not in st.session_state:
+        cols = ["Roll Number", "Student Name", "Subtopic", "Relevance %", "AI %", "Final Score", "Examiner Comments", "Timestamp"]
+        # Append Rubric Keys dynamically
+        cols.extend(RUBRIC_CRITERIA.keys())
+        
         if os.path.exists(GRADES_CSV_FILE):
             try:
                 gb = pd.read_csv(GRADES_CSV_FILE)
                 gb['Roll Number'] = gb['Roll Number'].astype(str).str.strip()
+                # Ensure new columns exist if loading old CSV
+                for k in RUBRIC_CRITERIA.keys():
+                    if k not in gb.columns:
+                        gb[k] = STARTING_SCORE
                 st.session_state.gradebook = gb
             except:
-                st.session_state.gradebook = pd.DataFrame(columns=["Roll Number", "Student Name", "Subtopic", "Relevance %", "AI %", "Final Score", "Examiner Comments", "Timestamp"])
+                st.session_state.gradebook = pd.DataFrame(columns=cols)
         else:
-            st.session_state.gradebook = pd.DataFrame(columns=["Roll Number", "Student Name", "Subtopic", "Relevance %", "AI %", "Final Score", "Examiner Comments", "Timestamp"])
+            st.session_state.gradebook = pd.DataFrame(columns=cols)
 
 def save_uploaded_file(uploaded_file):
     try:
@@ -135,7 +139,7 @@ with st.sidebar:
     if st.session_state.master_list is not None:
         st.success(f"✅ Class List Loaded ({len(st.session_state.master_list)} Students)")
     else:
-        st.error("❌ No Class List Found. Please upload CSV in Examiner Console.")
+        st.error("❌ No Class List Found.")
 
 # ==========================================
 # MODE 1: STUDENT SIMULATOR
@@ -148,29 +152,21 @@ if mode == "Student Simulator":
         roll_input = st.text_input("Enter Roll Number:", placeholder="e.g. 1")
     
     student_data = None
-    
-    # 1. Try to find student
     if roll_input and st.session_state.master_list is not None:
-        # Strict String Matching
-        roll_str = str(roll_input).strip()
-        rec = st.session_state.master_list[st.session_state.master_list['Roll number'] == roll_str]
-        
+        rec = st.session_state.master_list[st.session_state.master_list['Roll number'] == str(roll_input).strip()]
         if not rec.empty:
             student_data = rec.iloc[0]
             with col_info:
                 st.info(f"**Topic:** {student_data['Assigned Topic']}")
-                st.caption(f"**Must Cover:** {student_data['Must Cover in Review Section']}")
+                st.caption(f"**Requirements:** {student_data['Must Cover in Review Section']}")
         else:
             with col_info: st.error("❌ Roll Number not found.")
 
-    # 2. Display Logic
     if student_data is not None:
         st.divider()
-        # Check Gradebook using strict string match
         graded = st.session_state.gradebook[st.session_state.gradebook['Roll Number'] == str(roll_input).strip()]
         
         if not graded.empty:
-            # === SHOW OFFICIAL RESULT ===
             last = graded.iloc[-1]
             st.subheader("🎉 Official Assessment Result")
             m1, m2, m3 = st.columns(3)
@@ -178,10 +174,13 @@ if mode == "Student Simulator":
             m2.metric("AI Score", f"{last['AI %']}%")
             m3.metric("Relevance", f"{last['Relevance %']}%")
             st.write(f"**Examiner Remarks:** {last['Examiner Comments']}")
-        else:
-            # === SHOW SIMULATOR ===
-            st.subheader("🛠️ Grade Simulator")
             
+            with st.expander("See Detailed Rubric Breakdown"):
+                for k, v in RUBRIC_CRITERIA.items():
+                    score_val = last.get(k, 0.0)
+                    st.write(f"- {v}: **{score_val}**")
+        else:
+            st.subheader("🛠️ Grade Simulator")
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("**1. Integrity Checks**")
@@ -191,7 +190,6 @@ if mode == "Student Simulator":
                     txt = extract_text(up_file)
                     rel_val = check_topic_relevance(txt, student_data['Assigned Topic'], student_data['Must Cover in Review Section'])
                 st.metric("Relevance %", f"{rel_val:.1f}%")
-                
                 ai_val = st.number_input("StealthWriter %", 0.0, 100.0, 5.0, step=0.1)
 
             with c2:
@@ -200,15 +198,9 @@ if mode == "Student Simulator":
                 for key, label in RUBRIC_CRITERIA.items():
                     sim_scores[key] = st.slider(label, 0.0, 2.0, STARTING_SCORE, 0.25, key=f"sim_{key}")
 
-            # Calculate
             res = calculate_final_score(sim_scores, ai_val, rel_val)
             st.markdown("---")
             st.write(f"### 📊 Predicted Grade: :blue[{res['final']} / 10]")
-            
-            with st.expander("Show Calculation Details"):
-                st.write(f"Base Quality: {res['raw']} / 10")
-                st.write(f"AI Penalty: -{res['ai_pen']} ({res['ai_msg']})")
-                st.write(f"Relevance Penalty: -{res['rel_pen']} ({res['rel_msg']})")
 
 
 # ==========================================
@@ -234,14 +226,6 @@ elif mode == "Examiner Console":
                 load_data()
                 st.rerun()
         
-        if st.session_state.master_list is not None:
-             if st.button("🗑️ DELETE Master List"):
-                try: 
-                    os.remove(MASTER_CSV_FILE)
-                    st.session_state.master_list = None
-                    st.rerun()
-                except: pass
-
         st.markdown("---")
         st.write("### 2. Gradebook")
         if not st.session_state.gradebook.empty:
@@ -263,7 +247,6 @@ elif mode == "Examiner Console":
         if st.session_state.master_list is None:
             st.error("⚠️ Please upload the CSV in 'Data Management' first.")
         else:
-            # Dropdown List
             stu_opts = st.session_state.master_list.apply(lambda x: f"{x['Roll number']} - {x['Student Name']}", axis=1).tolist()
             sel_stu = st.selectbox("Select Student:", ["Select..."] + stu_opts)
             
@@ -275,62 +258,64 @@ elif mode == "Examiner Console":
                 with st.expander("Requirements"):
                     st.write(s_row['Must Cover in Review Section'])
                 
-                # *** KEY FIX: CHECK FOR EXISTING GRADE ***
+                # *** LOAD PREVIOUS DATA LOGIC ***
                 existing_grade = st.session_state.gradebook[st.session_state.gradebook['Roll Number'] == r_num]
                 
-                # Default Values (If no previous grade, use safe defaults)
+                # Default Defaults
                 def_ai = 5.0
                 def_rel = 0.0
                 def_rem = ""
-                # We can't easily restore individual sliders unless we saved them individually. 
-                # Currently we only save Final Score. So we reset sliders to STARTING_SCORE.
+                def_scores = {k: STARTING_SCORE for k in RUBRIC_CRITERIA.keys()}
                 
+                # Overwrite Defaults if Grade Exists
                 if not existing_grade.empty:
                     last_rec = existing_grade.iloc[-1]
                     def_ai = float(last_rec['AI %'])
                     def_rel = float(last_rec['Relevance %'])
                     def_rem = str(last_rec['Examiner Comments'])
-                    st.success("✅ Loading previous assessment data for this student.")
+                    # Load saved rubric scores
+                    for k in RUBRIC_CRITERIA.keys():
+                        if k in last_rec:
+                            def_scores[k] = float(last_rec[k])
+                    
+                    st.success("✅ Loaded previous marks for this student.")
 
                 # --- GRADING INTERFACE ---
                 c1, c2 = st.columns(2)
                 
                 with c1:
                     st.subheader("1. Penalties")
-                    # Relevance
                     st.write("**Content Match**")
                     f_up = st.file_uploader("Upload File", type=['pdf', 'docx'], key=f"up_{r_num}")
-                    rel_v = def_rel # Use default or calculated
+                    rel_v = def_rel 
                     if f_up:
                         txt = extract_text(f_up)
                         rel_v = check_topic_relevance(txt, s_row['Assigned Topic'], s_row['Must Cover in Review Section'])
                     
                     st.metric("Relevance %", f"{rel_v:.1f}%")
 
-                    # AI
                     st.write("**AI Check**")
                     ai_inp = st.number_input("StealthWriter %", 0.0, 100.0, def_ai, step=0.1, key=f"ai_{r_num}")
                     
-                    # Live Calc
                     res_preview = calculate_final_score({}, ai_inp, rel_v)
                     if res_preview['rejected']:
                         st.error(f"⛔ REJECTED: {res_preview['ai_msg']} | {res_preview['rel_msg']}")
                     else:
-                        if res_preview['ai_pen'] > 0: st.warning(f"AI Penalty: {res_preview['ai_msg']}")
-                        if res_preview['rel_pen'] > 0: st.warning(f"Rel Penalty: {res_preview['rel_msg']}")
+                        if res_preview['ai_pen'] > 0: st.warning(f"AI: {res_preview['ai_msg']}")
+                        if res_preview['rel_pen'] > 0: st.warning(f"Rel: {res_preview['rel_msg']}")
 
                 with c2:
                     st.subheader("2. Rubric")
-                    st.caption(f"Sliders start at {STARTING_SCORE} (Average).")
+                    st.caption(f"Adjust sliders:")
                     
                     sc = {}
                     is_rej = res_preview['rejected']
                     
                     for key, label in RUBRIC_CRITERIA.items():
-                        sc[key] = st.slider(label, 0.0, 2.0, STARTING_SCORE, 0.25, disabled=is_rej, key=f"ex_{r_num}_{key}")
+                        # Set default value to saved value (def_scores[key])
+                        sc[key] = st.slider(label, 0.0, 2.0, def_scores[key], 0.25, disabled=is_rej, key=f"ex_{r_num}_{key}")
                     
                     final_res = calculate_final_score(sc, ai_inp, rel_v)
-                    
                     if not is_rej:
                         st.metric("Current Grade", f"{final_res['final']} / 10")
                 
@@ -348,8 +333,11 @@ elif mode == "Examiner Console":
                         "Examiner Comments": rem,
                         "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
+                    # Save individual slider scores
+                    for k, v in sc.items():
+                        new_rec[k] = v
                     
-                    # Update Gradebook (Remove old, add new)
+                    # Update DataFrame
                     if not st.session_state.gradebook.empty:
                         st.session_state.gradebook = st.session_state.gradebook[st.session_state.gradebook['Roll Number'] != r_num]
                         
