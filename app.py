@@ -10,11 +10,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 # ==========================================
 # CONFIGURATION & FILE PATHS
 # ==========================================
-# The app will look for these files automatically
+# The app will save the uploaded file to this specific name to "remember" it.
 MASTER_CSV_FILE = "PhD_Review_Assignment_Distribution.csv"
 GRADES_CSV_FILE = "grades.csv"
 
-ADMIN_PASSWORD = "phd_admin_2025"  # <--- Change this password if needed
+ADMIN_PASSWORD = "phd_admin_2025"  # <--- Change this if needed
 
 RUBRIC_CRITERIA = {
     "scholarly_understanding": "Depth of Scholarly Understanding (0-2)",
@@ -33,21 +33,22 @@ AI_PENALTY_RULES = {
 # ==========================================
 # HELPER FUNCTIONS
 # ==========================================
+
 def load_data():
-    """Loads master list and gradebook from local files."""
-    # 1. Load Master Assignment List
+    """Attempts to load the master list and gradebook from the disk."""
+    # 1. Load Master List
     if 'master_list' not in st.session_state:
         if os.path.exists(MASTER_CSV_FILE):
             try:
                 df = pd.read_csv(MASTER_CSV_FILE)
-                # Clean up column names
+                # Clean header names
                 df.columns = [c.strip() for c in df.columns]
-                # Ensure 'Roll number' is string for matching
+                # Ensure Roll number is text
                 if 'Roll number' in df.columns:
                     df['Roll number'] = df['Roll number'].astype(str)
                 st.session_state.master_list = df
             except Exception as e:
-                st.error(f"Error loading Master CSV: {e}")
+                st.error(f"Error reading saved CSV: {e}")
                 st.session_state.master_list = None
         else:
             st.session_state.master_list = None
@@ -56,9 +57,9 @@ def load_data():
     if 'gradebook' not in st.session_state:
         if os.path.exists(GRADES_CSV_FILE):
             try:
-                st.session_state.gradebook = pd.read_csv(GRADES_CSV_FILE)
-                # Ensure Roll Number is string
-                st.session_state.gradebook['Roll Number'] = st.session_state.gradebook['Roll Number'].astype(str)
+                gb = pd.read_csv(GRADES_CSV_FILE)
+                gb['Roll Number'] = gb['Roll Number'].astype(str)
+                st.session_state.gradebook = gb
             except:
                 st.session_state.gradebook = pd.DataFrame(columns=[
                     "Roll Number", "Student Name", "Subtopic", "Relevance %", "AI %", "Final Score", "Examiner Comments", "Timestamp"
@@ -68,7 +69,18 @@ def load_data():
                 "Roll Number", "Student Name", "Subtopic", "Relevance %", "AI %", "Final Score", "Examiner Comments", "Timestamp"
             ])
 
+def save_uploaded_file(uploaded_file):
+    """Saves the uploaded CSV to disk so it is remembered permanently."""
+    try:
+        with open(MASTER_CSV_FILE, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        return True
+    except Exception as e:
+        st.error(f"Could not save file: {e}")
+        return False
+
 def extract_text(uploaded_file):
+    """Extracts text from PDF/DOCX."""
     text = ""
     try:
         if uploaded_file.type == "application/pdf":
@@ -84,6 +96,7 @@ def extract_text(uploaded_file):
     return text.strip()
 
 def check_topic_relevance(doc_text, topic, must_cover):
+    """Checks content relevance."""
     if not doc_text: return 0.0
     ref_text = f"{topic} {must_cover}".lower()
     clean_doc = doc_text.lower()
@@ -93,14 +106,6 @@ def check_topic_relevance(doc_text, topic, must_cover):
         return cosine_similarity(matrix[0:1], matrix[1:2])[0][0] * 100
     except: return 0.0
 
-def calculate_ai_status(ai_percent):
-    if ai_percent <= AI_PENALTY_RULES['threshold_safe']:
-        return "Safe (≤10%)", 0.0, False
-    elif ai_percent <= AI_PENALTY_RULES['threshold_warn']:
-        return "Warning (10-20%)", AI_PENALTY_RULES['penalty_score'], False
-    else:
-        return "REJECTED (>20%)", 0.0, True
-
 def calculate_final_grade(scores, penalty, is_rejected):
     raw = sum(scores.values())
     return raw, (0.0 if is_rejected else max(0.0, raw - penalty))
@@ -108,193 +113,208 @@ def calculate_final_grade(scores, penalty, is_rejected):
 # ==========================================
 # MAIN APP INTERFACE
 # ==========================================
-st.set_page_config(page_title="Ph.D. Assessment Portal", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="Ph.D. Assessment System", layout="wide", page_icon="🎓")
 
-# Load Data on Startup
+# Auto-load data on launch
 load_data()
 
-# --- SIDEBAR ---
+# --- SIDEBAR NAV ---
 with st.sidebar:
     st.title("🎓 Access Portal")
     mode = st.radio("Select Mode:", ["Student Portal", "Examiner Portal"])
-    
     st.divider()
-    st.markdown("### 📂 Data Status")
     
-    # Check Master File
+    # Status Indicators
+    st.write("### System Status")
     if st.session_state.master_list is not None:
-        st.success("✅ Assignment List: Loaded")
+        st.success(f"✅ Class List Loaded ({len(st.session_state.master_list)} students)")
     else:
-        st.error(f"❌ '{MASTER_CSV_FILE}' not found.")
-        st.info("Please ensure the CSV file is in the same folder as this script.")
-
-    # Check Gradebook
+        st.error("❌ No Class List Found")
+    
     if not st.session_state.gradebook.empty:
-        st.success(f"✅ Gradebook: {len(st.session_state.gradebook)} Records")
-    else:
-        st.info("ℹ️ Gradebook: Empty")
+        st.info(f"📊 {len(st.session_state.gradebook)} assignments graded")
 
 # ==========================================
-# MODE 1: STUDENT PORTAL (View Grade OR Simulate)
+# MODE 1: STUDENT PORTAL
 # ==========================================
 if mode == "Student Portal":
-    st.title("🎓 Student Dashboard")
-    st.markdown("Enter your Roll Number to view your assignment details or check your results.")
+    st.title("Student Dashboard")
+    st.markdown("Check your assignment details or view your result.")
     
     col_input, col_info = st.columns([1, 2])
-    
     with col_input:
         roll_input = st.text_input("Enter Roll Number:", placeholder="e.g. 1")
-    
+
     student_data = None
     
-    # Identify Student
     if roll_input and st.session_state.master_list is not None:
+        # Match Roll Number
         record = st.session_state.master_list[st.session_state.master_list['Roll number'] == roll_input.strip()]
-        
         if not record.empty:
             student_data = record.iloc[0]
             with col_info:
-                st.subheader(f"Welcome, {student_data['Student Name']}")
-                st.info(f"**Topic:** {student_data['Assigned Topic']}")
-                st.caption(f"**Requirements:** {student_data['Must Cover in Review Section']}")
+                st.success(f"**Identified:** {student_data['Student Name']}")
+                st.caption(f"Topic: {student_data['Assigned Topic']}")
         else:
             with col_info:
                 st.warning("Roll number not found.")
+    elif st.session_state.master_list is None:
+        st.warning("⚠️ The Examiner has not uploaded the assignment list yet.")
 
-    # Show Grade OR Simulator
+    # Student View Logic
     if student_data is not None:
         st.divider()
+        # Check if graded
+        graded_rec = st.session_state.gradebook[st.session_state.gradebook['Roll Number'] == roll_input.strip()]
         
-        # CHECK IF GRADED
-        graded_record = st.session_state.gradebook[st.session_state.gradebook['Roll Number'] == roll_input.strip()]
-        
-        if not graded_record.empty:
-            # === VIEW OFFICIAL GRADE ===
-            st.success("🎉 **Your Official Grade is Available**")
-            result = graded_record.iloc[-1] # Get latest grade
-            
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Final Score", f"{result['Final Score']} / 10")
-            m2.metric("AI Detected", f"{result['AI %']}%")
-            m3.metric("Status", "Pass" if result['Final Score'] >= 5 else "Review Needed")
-            
-            st.subheader("Examiner Feedback:")
-            st.markdown(f"> {result['Examiner Comments']}")
-            
+        if not graded_rec.empty:
+            # Show Result
+            res = graded_rec.iloc[-1]
+            st.subheader(f"🎉 Result: {res['Final Score']} / 10")
+            st.progress(res['Final Score']/10)
+            st.write(f"**Examiner Comments:** {res['Examiner Comments']}")
+            st.info(f"AI Detected: {res['AI %']}% | Relevance: {res['Relevance %']}%")
         else:
-            # === SHOW SIMULATOR (Not graded yet) ===
-            st.warning("ℹ️ Your assignment has not been graded yet. Use the tool below to test your draft.")
-            st.subheader("🛠️ Pre-Submission Simulator")
+            # Show Simulator
+            st.subheader("Draft Simulator (Pre-Submission)")
+            st.markdown(f"**Requirements:** {student_data['Must Cover in Review Section']}")
             
-            # Simulator Logic
-            up_file = st.file_uploader("Upload Draft to Test Relevance", type=['pdf', 'docx'])
-            if up_file:
-                txt = extract_text(up_file)
+            up_test = st.file_uploader("Test your file (PDF/DOCX)", type=['pdf', 'docx'])
+            if up_test:
+                txt = extract_text(up_test)
                 rel = check_topic_relevance(txt, student_data['Assigned Topic'], student_data['Must Cover in Review Section'])
-                if rel > 15: st.success(f"✅ Relevance Check: {rel:.1f}% (Good Match)")
-                else: st.error(f"⚠️ Relevance Check: {rel:.1f}% (Too Low - Check 'Must Cover' points)")
-            
-            st.write("---")
-            c1, c2 = st.columns(2)
-            with c1:
-                st.write("**Penalty Checker**")
-                s_ai = st.number_input("Est. AI %", 0, 100, 5)
-                msg, pen, rej = calculate_ai_status(s_ai)
-                if rej: st.error(msg)
-                elif pen: st.warning(msg)
-                else: st.success(msg)
-            with c2:
-                st.write("**Rubric Estimate**")
-                s_score = st.slider("Est. Quality (0-10)", 0.0, 10.0, 7.0)
-                _, s_final = calculate_final_grade({'t':s_score}, pen, rej)
-                st.metric("Predicted Score", f"{s_final}/10")
+                st.metric("Relevance Score", f"{rel:.1f}%")
+                if rel < 15: st.error("⚠️ Low relevance. Check 'Must Cover' points.")
+                else: st.success("✅ Good match!")
 
 # ==========================================
-# MODE 2: EXAMINER PORTAL (Grading)
+# MODE 2: EXAMINER PORTAL
 # ==========================================
 elif mode == "Examiner Portal":
-    st.title("🔒 Examiner Grading")
+    st.title("🔒 Examiner Control Panel")
     
-    pwd = st.sidebar.text_input("Password", type="password")
-    if pwd != ADMIN_PASSWORD:
-        st.warning("Enter password to unlock.")
-        st.stop()
+    pwd = st.sidebar.text_input("Enter Password", type="password")
     
-    if st.session_state.master_list is None:
-        st.error(f"Missing '{MASTER_CSV_FILE}'. Please put it in the app folder.")
-        st.stop()
+    if pwd == ADMIN_PASSWORD:
         
-    st.subheader("Grade a Student")
-    # Dropdown for selecting student instead of typing ID
-    # Create list of "Roll - Name"
-    student_options = st.session_state.master_list.apply(lambda x: f"{x['Roll number']} - {x['Student Name']}", axis=1).tolist()
-    selected_stu = st.selectbox("Select Student:", ["Select..."] + student_options)
-    
-    if selected_stu != "Select...":
-        roll_num = selected_stu.split(" - ")[0]
-        stu_row = st.session_state.master_list[st.session_state.master_list['Roll number'] == roll_num].iloc[0]
+        # --- TABBED INTERFACE ---
+        tab1, tab2, tab3 = st.tabs(["📤 Upload & Manage Data", "📝 Grading Console", "📊 View Records"])
         
-        st.info(f"**Topic:** {stu_row['Assigned Topic']}\n\n**Must Cover:** {stu_row['Must Cover in Review Section']}")
-        
-        # Grading Form
-        with st.form("grading_form"):
-            col_left, col_right = st.columns(2)
+        # --- TAB 1: DATA MANAGEMENT ---
+        with tab1:
+            st.header("Manage Assignment List")
+            st.write("Upload the `PhD_Review_Assignment_Distribution.csv` file here. The system will **permanently remember** it.")
             
-            with col_left:
-                st.markdown("#### 1. Integrity Check")
-                # Document Relevance
-                ex_file = st.file_uploader("Upload Submission", type=['pdf', 'docx'])
-                rel_val = 0.0
-                if ex_file:
-                    with st.spinner("Analyzing..."):
-                        txt = extract_text(ex_file)
-                        rel_val = check_topic_relevance(txt, stu_row['Assigned Topic'], stu_row['Must Cover in Review Section'])
-                    st.metric("Content Relevance", f"{rel_val:.1f}%", delta_color="normal" if rel_val>15 else "inverse")
-                
-                # AI Check
-                ai_val = st.number_input("StealthWriter AI %", 0.0, 100.0, step=0.1)
-                stat_msg, pen_val, is_rej = calculate_ai_status(ai_val)
-                if is_rej: st.error(f"⛔ {stat_msg}")
-                elif pen_val > 0: st.warning(f"⚠️ {stat_msg}")
-                else: st.success(f"✅ {stat_msg}")
+            uploaded_csv = st.file_uploader("Upload Master CSV", type=['csv'])
+            
+            if uploaded_csv:
+                if save_uploaded_file(uploaded_csv):
+                    st.toast("File Saved Permanently!", icon="💾")
+                    # Reload data immediately
+                    st.cache_data.clear()
+                    if 'master_list' in st.session_state:
+                        del st.session_state['master_list']
+                    load_data()
+                    st.rerun()
 
-            with col_right:
-                st.markdown("#### 2. Rubric Evaluation")
-                scores = {}
-                disabled = is_rej
-                for key, label in RUBRIC_CRITERIA.items():
-                    scores[key] = st.slider(label, 0.0, 2.0, 1.0, 0.25, disabled=disabled)
-            
-            comments = st.text_area("Examiner Remarks", disabled=disabled)
-            submit = st.form_submit_button("💾 Save & Publish Grade")
-            
-            if submit:
-                raw_s, final_s = calculate_final_grade(scores, pen_val, is_rej)
-                
-                # New Record
-                new_record = {
-                    "Roll Number": roll_num,
-                    "Student Name": stu_row['Student Name'],
-                    "Subtopic": stu_row['Assigned Topic'],
-                    "Relevance %": round(rel_val, 1),
-                    "AI %": ai_val,
-                    "Final Score": final_s,
-                    "Examiner Comments": comments,
-                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
-                }
-                
-                # Update Session State
-                new_df = pd.DataFrame([new_record])
-                st.session_state.gradebook = pd.concat([st.session_state.gradebook, new_df], ignore_index=True)
-                
-                # SAVE TO DISK (Permanent)
-                st.session_state.gradebook.to_csv(GRADES_CSV_FILE, index=False)
-                
-                st.success(f"✅ Grade Recorded for {stu_row['Student Name']}! (Saved to {GRADES_CSV_FILE})")
+            st.divider()
+            st.write("**Current Class List in Memory:**")
+            if st.session_state.master_list is not None:
+                st.dataframe(st.session_state.master_list)
+            else:
+                st.warning("No list loaded yet. Please upload CSV above.")
 
-    # Show Database
-    st.divider()
-    with st.expander("View All Records (Gradebook)"):
-        st.dataframe(st.session_state.gradebook)
-        st.download_button("Download Gradebook CSV", st.session_state.gradebook.to_csv(index=False), "final_grades.csv")
+        # --- TAB 2: GRADING ---
+        with tab2:
+            if st.session_state.master_list is None:
+                st.error("Please go to the 'Upload & Manage Data' tab and upload the CSV first.")
+            else:
+                st.header("Assessment Console")
+                
+                # Student Selector
+                opts = st.session_state.master_list.apply(lambda x: f"{x['Roll number']} - {x['Student Name']}", axis=1).tolist()
+                sel = st.selectbox("Select Student:", ["Select..."] + opts)
+                
+                if sel != "Select...":
+                    r_num = sel.split(" - ")[0]
+                    s_row = st.session_state.master_list[st.session_state.master_list['Roll number'] == r_num].iloc[0]
+                    
+                    st.info(f"**Topic:** {s_row['Assigned Topic']}")
+                    with st.expander("View Required Content Details"):
+                        st.write(s_row['Must Cover in Review Section'])
+                    
+                    # 1. File Analysis
+                    st.write("---")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write("**1. Document Check**")
+                        u_file = st.file_uploader("Upload Student PDF/DOCX", type=['pdf', 'docx'])
+                        rel_v = 0.0
+                        if u_file:
+                            txt = extract_text(u_file)
+                            rel_v = check_topic_relevance(txt, s_row['Assigned Topic'], s_row['Must Cover in Review Section'])
+                            st.metric("Relevance", f"{rel_v:.1f}%", delta_color="normal" if rel_v>15 else "inverse")
+                    
+                    with c2:
+                        st.write("**2. AI Integrity**")
+                        ai_inp = st.number_input("StealthWriter %", 0.0, 100.0, step=0.1)
+                        # Local penalty logic
+                        pen_v = 0.0
+                        rej = False
+                        if ai_inp > 20: 
+                            st.error("REJECTED (>20%)")
+                            rej = True
+                        elif ai_inp > 10:
+                            st.warning("WARNING: -2 Marks")
+                            pen_v = 2.0
+                        else:
+                            st.success("SAFE")
+
+                    # 3. Rubric
+                    st.write("---")
+                    st.write("**3. Academic Rubric**")
+                    with st.form("grade_form"):
+                        sc = {}
+                        dis = rej
+                        
+                        cc1, cc2 = st.columns(2)
+                        with cc1:
+                            sc['scholarly_understanding'] = st.slider("Scholarly Understanding", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                            sc['critical_analysis'] = st.slider("Critical Analysis", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                            sc['logical_flow'] = st.slider("Logical Flow", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                        with cc2:
+                            sc['literature_usage'] = st.slider("Literature Usage", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                            sc['writing_style'] = st.slider("Writing Style", 0.0, 2.0, 1.0, 0.25, disabled=dis)
+                        
+                        rem = st.text_area("Final Remarks", disabled=dis)
+                        
+                        if st.form_submit_button("Save Grade"):
+                            _, fin = calculate_final_grade(sc, pen_v, rej)
+                            
+                            # Save
+                            new_row = {
+                                "Roll Number": r_num,
+                                "Student Name": s_row['Student Name'],
+                                "Subtopic": s_row['Assigned Topic'],
+                                "Relevance %": round(rel_v, 1),
+                                "AI %": ai_inp,
+                                "Final Score": fin,
+                                "Examiner Comments": rem,
+                                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                            new_df = pd.DataFrame([new_row])
+                            st.session_state.gradebook = pd.concat([st.session_state.gradebook, new_df], ignore_index=True)
+                            st.session_state.gradebook.to_csv(GRADES_CSV_FILE, index=False)
+                            st.success("Grade Saved!")
+
+        # --- TAB 3: RECORDS ---
+        with tab3:
+            st.header("Gradebook Records")
+            if not st.session_state.gradebook.empty:
+                st.dataframe(st.session_state.gradebook)
+                st.download_button("Download CSV", st.session_state.gradebook.to_csv(index=False), "grades.csv")
+            else:
+                st.info("No grades recorded yet.")
+    
+    else:
+        if pwd: st.error("Incorrect Password")
