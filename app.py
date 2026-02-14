@@ -17,11 +17,11 @@ st.markdown("""
         color: black;
         width: 210mm;
         min-height: 297mm;
-        padding: 15mm 20mm; /* Adjusted margins to match image */
+        padding: 15mm 20mm;
         margin: 10px auto;
         font-family: 'Noto Sans Gujarati', sans-serif;
-        font-size: 14px; /* Increased slightly for headers */
-        line-height: 1.4;
+        font-size: 13px;
+        line-height: 1.5;
         box-shadow: 0 0 15px rgba(0,0,0,0.5);
     }
 
@@ -29,76 +29,89 @@ st.markdown("""
     .input-line {
         border-bottom: 1px solid black;
         display: inline-block;
-        margin-left: 5px;
+        padding-left: 5px;
+        padding-right: 5px;
     }
     
     /* Table Styling */
-    table.budget-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
-    table.budget-table th, table.budget-table td { border: 1px solid black; padding: 6px; }
-    table.budget-table th { background-color: #f0f0f0; text-align: center; }
+    table.budget-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    table.budget-table th, table.budget-table td { border: 1px solid black; padding: 8px; vertical-align: middle; }
+    table.budget-table th { text-align: center; font-weight: bold; }
+    table.budget-table td { height: 35px; } /* Min height for rows */
 
     /* Helper Classes */
-    .bold { font-weight: bold; }
+    .bold { font-weight: 700; }
     .center { text-align: center; }
     .right { text-align: right; }
     .flex-row { display: flex; justify-content: space-between; align-items: flex-end; }
+    
+    /* Specific styles for the bottom form */
+    .claim-line { margin-top: 10px; display: flex; align-items: baseline; }
+    .dotted-box { border: 1px dashed #ccc; padding: 5px; margin-top: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# PAGE 1 CONTENT - STRICTLY MATCHING UPLOADED IMAGE
+# PAGE 1 CONTENT - UPDATED BOTTOM HALF MATCHING SCREENSHOT
 # ---------------------------------------------------------
 page1_html = """
 <div class="right" style="margin-bottom: 10px; font-size: 12px;">
 હિસાબી પત્રક નંબર <span class="input-line" style="width:100px;"></span>
 </div>
 <div class="center">
-<div style="font-size: 24px; font-weight: 700;">નવસારી કૃષિ વિશ્વવિધાલય</div>
+<div style="font-size: 22px; font-weight: 700;">નવસારી કૃષિ વિશ્વવિધાલય</div>
 <div style="font-size: 16px; font-weight: 700; margin-top: 5px;">મુસાફરી ભથ્થા બીલ</div>
 </div>
-<div class="flex-row" style="margin-top: 30px;">
-<div style="width: 40%; font-weight: 700; font-size: 15px;">
-<div style="margin-bottom: 15px;">બીલ નંબર :</div>
+<div class="flex-row" style="margin-top: 20px;">
+<div style="width: 40%; font-weight: 700; font-size: 14px;">
+<div style="margin-bottom: 10px;">બીલ નંબર :</div>
 <div>તારીખ &nbsp;&nbsp;&nbsp;:</div>
 </div>
-<div style="width: 50%; text-align: right; font-size: 13px;">
-<div style="margin-bottom: 8px;">વાઉચર નં. <span class="input-line" style="width:180px;"></span></div>
-<div style="margin-bottom: 8px;">તારીખ <span class="input-line" style="width:180px;"></span></div>
-<div style="margin-bottom: 8px;">યુનિટ નંબર : <span class="input-line" style="width:165px;"></span></div>
+<div style="width: 50%; text-align: right; font-size: 12px;">
+<div style="margin-bottom: 5px;">વાઉચર નં. <span class="input-line" style="width:180px;"></span></div>
+<div style="margin-bottom: 5px;">તારીખ <span class="input-line" style="width:180px;"></span></div>
+<div style="margin-bottom: 5px;">યુનિટ નંબર : <span class="input-line" style="width:165px;"></span></div>
 <div>કોડ નંબર : <span class="input-line" style="width:180px;"></span></div>
 </div>
 </div>
-<div class="center" style="margin-top: 30px; font-weight: 700; font-size: 13px;">
+<div class="center" style="margin-top: 20px; font-weight: 700; font-size: 12px;">
 આચાર્ય અને ડીનશ્રી, નં. મ. કૃષિ મહાવિદ્યાલય, નકૃયું, નવસારી ની કચેરીનું માહે: ઓક્ટોમ્બર - ૨૦૨૫ નું
 </div>
 <div class="center" style="margin-top: 5px;">
-<span style="font-size: 18px; font-weight: 700; border-bottom: 2px solid black; padding-bottom: 2px;">મુસાફરી ભથ્થા બિલ</span>
+<span style="font-size: 16px; font-weight: 700; border-bottom: 2px solid black; padding-bottom: 2px;">મુસાફરી ભથ્થા બિલ</span>
 </div>
-<div style="margin-top: 25px; font-weight: 600;">
+<div style="margin-top: 20px; font-weight: 600; font-size: 12px;">
 યુનિટ/સબયુનિટ : આચાર્ય અને ડીનશ્રી, ન. મ. કૃષિ મહાવિદ્યાલય, નકૃયું, નવસારી
 </div>
-<div style="margin-top: 20px; font-weight: 600; text-align: center;">
+<div class="center" style="margin-top: 15px; font-weight: 600;">
 ખર્ચ માટેનું બજેટ સદર :-
 </div>
-<div style="margin-top: 20px; text-align: justify;">
-આથી રૂ।. <strong style="font-size:14px; text-decoration: underline;">12161</strong> નો દાવો મંજુર કરી ગ્રાહય રાખવામાં આવે છે.
+<div class="center" style="margin-top: 5px; font-weight: 600;">
+યોજનાનું નામ :-
 </div>
-<div style="margin-top: 20px; border: 1px solid black; padding: 15px;">
-રૂા. <strong>12161</strong> ( અંકે રૂપિયા <strong>બાર હજાર એકસો એકસઠ પુરા</strong> પૈસા )
-<br><br>
-આ બીલમાં જણાવેલ રૂા <span class="input-line" style="width:80px;"></span> મંજુર કરવામાં આવે છે અને તે રોકડા / ચેક નં. <span class="input-line" style="width:80px;"></span> થી ચુકવવામાં આવે છે.
+<div style="margin-top: 15px; font-size: 14px;">
+આથી રૂા. <span class="input-line" style="width: 150px; text-align:center; font-weight:bold;">12161</span> ના દાવો મંજુર કરી ગ્રાહય રાખવામાં આવે છે.
 </div>
-<div class="flex-row" style="margin-top: 40px;">
-<div style="text-align: left;">
-નવસારી<br>
-તારીખ : <span class="input-line" style="width:100px;"></span>
+<div style="margin-top: 10px; border-top: 1px solid black; padding-top: 10px;">
+<div style="line-height: 2;">
+આ બીલમાં જણાવેલ રૂા <span class="input-line" style="width: 80px; text-align:center; font-weight:bold;">12161</span> (
+<span style="margin-left: 20px;">અંકે રૂપિયા <span style="font-weight:bold; font-size:14px;">બાર હજાર એકસો એકસઠ પુરા</span></span>
+<span style="float:right;">પૈસા)</span>
+<br>
+મંજુર કરવામાં આવે છે. અને તે રોકડા / ચેક નં. <span class="input-line" style="width: 150px;"></span> તા. <span class="input-line" style="width: 100px;"></span> થી ચુકવવામાં આવે છે.
+</div>
+</div>
+<div class="flex-row" style="margin-top: 20px;">
+<div>
+સ્થળ : &nbsp;&nbsp;&nbsp;નવસારી<br>
+તારીખ :
 </div>
 <div style="text-align: center;">
-<span class="input-line" style="width:150px;"></span><br>
 બીલ મંજુર કરનાર અધિકારીની<br>
 સહી અને હોદ્દો
 </div>
 </div>
+<hr style="border-top: 2px solid black; margin: 15px 0;">
 <table class="budget-table">
 <colgroup>
 <col style="width: 70%;">
@@ -107,9 +120,13 @@ page1_html = """
 </colgroup>
 <thead>
 <tr>
-<th>વિગત</th>
+<th rowspan="2" style="text-align:left; border-bottom: none;"></th>
 <th>રૂ.</th>
 <th>પૈસા</th>
+</tr>
+<tr>
+<th style="height:20px;"></th>
+<th style="height:20px;"></th>
 </tr>
 </thead>
 <tbody>
@@ -130,14 +147,11 @@ page1_html = """
 </tr>
 </tbody>
 </table>
-<div style="margin-top: 30px; border-top: 1px solid black; padding-top: 10px;">
-<div style="float: right; text-align: center; margin-left: 20px;">
-<span class="input-line" style="width:150px;"></span><br>
-નિયંત્રણ અધિકારીની સહી
+<div style="margin-top: 15px; font-size: 13px;">
+રૂા ( <span class="input-line" style="width: 100px; text-align:center; font-weight:bold;">12161</span> ) અંકે રૂપિયા : <span class="input-line" style="width: 350px; font-weight:bold;">બાર હજાર એકસો એકસઠ પુરા</span> મંજુર કર્યા
 </div>
-<div style="padding-top: 10px;">
-રૂપ ( <strong>12161</strong> ) અંકે રૂપિયા : બાર હજાર એકસો એકસઠ પુરા મંજુર કર્યા.
-</div>
+<div style="text-align: right; margin-top: 40px; font-weight: 600;">
+નિયંત્રણ અધિકારીની સહી___________
 </div>
 """
 
