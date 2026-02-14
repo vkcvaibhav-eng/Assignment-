@@ -37,22 +37,18 @@ st.markdown("""
     table.budget-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
     table.budget-table th, table.budget-table td { border: 1px solid black; padding: 8px; vertical-align: middle; }
     table.budget-table th { text-align: center; font-weight: bold; }
-    table.budget-table td { height: 35px; } /* Min height for rows */
+    table.budget-table td { height: 35px; }
 
     /* Helper Classes */
     .bold { font-weight: 700; }
     .center { text-align: center; }
     .right { text-align: right; }
     .flex-row { display: flex; justify-content: space-between; align-items: flex-end; }
-    
-    /* Specific styles for the bottom form */
-    .claim-line { margin-top: 10px; display: flex; align-items: baseline; }
-    .dotted-box { border: 1px dashed #ccc; padding: 5px; margin-top: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# PAGE 1 CONTENT - UPDATED BOTTOM HALF MATCHING SCREENSHOT
+# PAGE 1 CONTENT (Unchanged)
 # ---------------------------------------------------------
 page1_html = """
 <div class="right" style="margin-bottom: 10px; font-size: 12px;">
@@ -156,7 +152,7 @@ page1_html = """
 """
 
 # ---------------------------------------------------------
-# PAGE 2 CONTENT (Standard Layout)
+# PAGE 2 CONTENT (Updated Bottom Half per Image)
 # ---------------------------------------------------------
 page2_html = """
 <div style="font-size: 11px;">
@@ -168,7 +164,7 @@ page2_html = """
 <li>જયારે મુસાફરી ભથ્થા બીલમાં શરૂઆતમાં મુસાફરીને બદલે 'હોલ્ટ' દર્શાવવામાં આવેલ હોય તેવા કિસ્સામાં 'હોલ્ટ' ની શરૂઆત થયાની તારીખ કો.નં. ૧૯ માં દર્શાવવી.</li>
 </ol>
 </div>
-<div style="margin-top: 15px;">
+<div style="margin-top: 10px;">
 <strong>યુનિવર્સિટી કર્મચારીએ આપવાનું પ્રમાણપત્ર</strong>
 <ol style="margin-top: 5px; padding-left: 20px;">
 <li>આથી પ્રમાણપત્ર આપવામાં આવે છે કે, આ બીલમાં આકારેલ રકમ બીજા કોઈ બીલમાં આકારેલ નથી.</li>
@@ -186,44 +182,67 @@ page2_html = """
 કર્મચારીની સહી નામ અને હોદ્દો
 </div>
 </div>
-<hr style="border-top: 1px solid black; margin: 15px 0;">
-<div>
-<strong>યુનિવર્સિટી અધિકારીઓ અને અન્ય સભ્યોએ આપવાનું પ્રમાણપત્ર</strong><br>
-<span style="font-size: 12px;">આથી પ્રમાણિત કરવામાં આવે છે કે સદર બીલમાં કરેલ મુસાફરી ભથ્થાનો દાવો આ અંગેના નિયમોની જોગવાઈઓના આધારે ખરો અને યોગ્ય છે.</span>
+<div class="center" style="margin-top: 30px; font-weight: 700; font-size: 14px;">
+યુનિવર્સિટી અધિકારીઓ અને અન્ય સભ્યોએ આપવાનું પ્રમાણપત્ર
 </div>
-<div class="flex-row" style="margin-top: 30px;">
-<div></div>
-<div style="text-align: center;">
-<span class="input-line" style="width:150px;"></span><br>
-<strong>પ્રાધ્યાપક અને વડા</strong><br>
+<div class="center" style="margin-top: 10px; font-size: 12px; font-weight: 600;">
+આથી પ્રમાણિત કરવામાં આવે છે કે સદર બીલમાં કરેલ મુસાફરી ભથ્થાનો દાવો આ અંગેના નિયમોની જોગવાઈઓના આધારે ખરો અને યોગ્ય છે.
+</div>
+<div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+<div style="text-align: center; font-weight: 700; font-size: 13px; line-height: 1.4;">
+પ્રાધ્યાપક અને વડા<br>
 કિટકશાત્ર વિભાગ<br>
-નં. મ. કૃષિ મહાવિદ્યાલય, નકૃયું, નવસારી
+નં. મ. કૃષિ મહાવિદ્યાલય<br>
+નકૃયું, નવસારી
 </div>
 </div>
-<div style="border: 1px solid black; padding: 10px; margin-top: 20px;">
-<strong>કર્મચારી/અધિકારી / સભ્યશ્રીએ નીચેની વિગત ભરવી.</strong>
-<div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; text-align: center; align-items: center; margin-top: 10px; border: 1px solid black; padding: 5px; background: #fafafa;">
-<div>બીલની કુલ રકમ<br><strong>12161</strong></div>
-<div>-</div>
-<div>બાદ: બીલની પેશગીની રકમ<br><strong>0</strong></div>
-<div>=</div>
-<div>ચૂકવવા પાત્ર ચોખ્ખી રકમ<br><strong>12161</strong></div>
+<div style="margin-top: 10px; font-weight: 700; font-size: 13px; border-bottom: 2px solid black; padding-bottom: 2px;">
+કર્મચારી / અધિકારી / સભ્યશ્રીએ નીચેની વિગત ભરવી.
 </div>
-<div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px;">
-અંકે રૂપિયા <strong>બાર હજાર એકસો એકસઠ પુરા</strong> મને મળ્યા છે.
+<div style="display: flex; border-bottom: 2px solid black;">
+<div style="width: 50%; border-right: 2px solid black; padding: 10px 10px 10px 0; font-weight: 600;">
+<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+<span>બીલની કુલ રકમ</span>
+<span style="font-weight: 700; font-size: 14px;">= &nbsp;&nbsp; 12161</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+<span>બાદ બીલની પેશગીની રકમ</span>
+<span style="font-weight: 700;">=</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+<span>ચૂકવવા પાત્ર ચોખ્ખી રકમ</span>
+<span style="font-weight: 700; font-size: 14px;">= &nbsp;&nbsp; 12161</span>
+</div>
+<div style="margin-bottom: 5px;">પેશગીના નાણાં મળ્યાની તા.</div>
+<div style="margin-bottom: 5px; display: flex;">
+<span>પેશગી કયા ઝોન /યુનિટમાંથી<br>ઉપાડવામાં આવી.</span>
+<span style="margin-left: auto; align-self: center; font-weight: bold; margin-right: 20px;">નીલ</span>
+</div>
+<div style="margin-top: 15px;">
+પેશગી ઉપાડવાના વાઉચર નંબર<br>
+<div style="text-align: center; border-bottom: 1px solid black; width: 100px; margin-top: 5px;">&nbsp;</div>
+તારીખ
 </div>
 </div>
-<div class="flex-row" style="margin-top: 15px; font-size: 11px;">
-<div style="width: 55%;">
-પેશગીના નાણાં મળ્યાની તારીખ: <span class="input-line" style="width:80px;"></span><br>
-<div style="margin-top:5px;">પેશગી કયા ઝોન યુનિટમાંથી ઉપાડવામાં આવી: <span class="input-line" style="width:80px;"></span></div>
-<div style="margin-top:5px;">પેશગી ઉપાડવાના વાઉચર નંબર: <span class="input-line" style="width:50px;"></span> તારીખ: <span class="input-line" style="width:50px;"></span></div>
+<div style="width: 50%; padding: 10px 0 10px 10px; position: relative; font-weight: 600;">
+<div style="margin-bottom: 5px;">
+બીલની રકમ રૂ. <span style="font-weight: 700; border-bottom: 1px solid black; padding: 0 10px; font-size: 14px;">12161</span>
 </div>
-<div style="width: 40%; text-align: center; border: 1px solid black; padding: 5px;">
-<br><br>
-<strong>(સચિન આર. પટેલ)</strong><br>
-સહ પ્રાધ્યાપક<br>
-કર્મચારીની સહી
+<div style="margin-bottom: 15px;">
+અંકે રૂપિયા <span style="font-weight: 700; border-bottom: 1px solid black; font-size: 14px;">બાર હજાર એકસો એકસઠ પુરા</span>
+</div>
+<div style="margin-bottom: 20px;">મને મળ્યા છે.</div>
+<div style="margin-bottom: 5px;">
+સ્થળ : <span style="border-bottom: 1px solid black;">નવસારી</span>
+</div>
+<div style="margin-bottom: 50px;">
+તારીખ :
+</div>
+<div style="text-align: center; position: absolute; bottom: 10px; right: 10px;">
+<div style="font-weight: 700;">(સચિન આર. પટેલ)</div>
+<div style="font-weight: 600;">સહ પ્રાધ્યાપક</div>
+<div style="font-weight: 600;">કર્મચારીની સહી</div>
+</div>
 </div>
 </div>
 """
